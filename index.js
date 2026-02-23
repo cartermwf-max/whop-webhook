@@ -1,60 +1,28 @@
 const express = require('express');
+const nodemailer = require('nodemailer');
 const app = express();
 
 app.use(express.json());
 
-const SHOPIFY_STORE = process.env.SHOPIFY_STORE;
-const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_PASS = process.env.GMAIL_PASS;
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
 
-async function getCustomer(email) {
-  const res = await fetch(
-    `https://${SHOPIFY_STORE}/admin/api/2024-01/customers/search.json?query=email:${email}`,
-    { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } }
-  );
-  const data = await res.json();
-  return data.customers?.[0] || null;
-}
-
-async function createCustomer(email) {
-  const res = await fetch(
-    `https://${SHOPIFY_STORE}/admin/api/2024-01/customers.json`,
-    {
-      method: 'POST',
-      headers: {
-        'X-Shopify-Access-Token': SHOPIFY_TOKEN,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        customer: {
-          email,
-          tags: 'whop-member',
-          send_email_invite: true
-        }
-      })
-    }
-  );
-  const data = await res.json();
-  console.log('Create customer response:', JSON.stringify(data));
-}
-
-async function updateTags(customer, add) {
-  let tags = customer.tags.split(',').map(t => t.trim()).filter(Boolean);
-  if (add) {
-    if (!tags.includes('whop-member')) tags.push('whop-member');
-  } else {
-    tags = tags.filter(t => t !== 'whop-member');
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: GMAIL_USER,
+    pass: GMAIL_PASS
   }
-  await fetch(
-    `https://${SHOPIFY_STORE}/admin/api/2024-01/customers/${customer.id}.json`,
-    {
-      method: 'PUT',
-      headers: {
-        'X-Shopify-Access-Token': SHOPIFY_TOKEN,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ customer: { id: customer.id, tags: tags.join(', ') } })
-    }
-  );
+});
+
+async function sendEmail(subject, body) {
+  await transporter.sendMail({
+    from: GMAIL_USER,
+    to: NOTIFY_EMAIL,
+    subject,
+    text: body
+  });
 }
 
 app.post('/activate', async (req, res) => {
@@ -62,14 +30,11 @@ app.post('/activate', async (req, res) => {
   const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email || req.body?.text;
   if (!email) return res.status(400).send('No email');
   try {
-    const customer = await getCustomer(email);
-    if (customer) {
-      console.log('Found customer, updating tags');
-      await updateTags(customer, true);
-    } else {
-      console.log('No customer found, creating new');
-      await createCustomer(email);
-    }
+    await sendEmail(
+      'Whop: Add member tag',
+      `A new member just subscribed on Whop.\n\nAdd the "whop-member" tag in Shopify for:\n\n${email}\n\nShopify link: https://midwestflyways.myshopify.com/admin/customers?query=${encodeURIComponent(email)}`
+    );
+    console.log('Email sent for activate:', email);
     res.sendStatus(200);
   } catch (err) {
     console.error(err);
@@ -78,11 +43,15 @@ app.post('/activate', async (req, res) => {
 });
 
 app.post('/deactivate', async (req, res) => {
+  console.log('Deactivate body:', JSON.stringify(req.body));
   const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email || req.body?.text;
   if (!email) return res.status(400).send('No email');
   try {
-    const customer = await getCustomer(email);
-    if (customer) await updateTags(customer, false);
+    await sendEmail(
+      'Whop: Remove member tag',
+      `A member just unsubscribed on Whop.\n\nRemove the "whop-member" tag in Shopify for:\n\n${email}\n\nShopify link: https://midwestflyways.myshopify.com/admin/customers?query=${encodeURIComponent(email)}`
+    );
+    console.log('Email sent for deactivate:', email);
     res.sendStatus(200);
   } catch (err) {
     console.error(err);
