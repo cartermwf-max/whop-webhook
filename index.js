@@ -16,7 +16,7 @@ async function getCustomer(email) {
 }
 
 async function createCustomer(email) {
-  await fetch(
+  const res = await fetch(
     `https://${SHOPIFY_STORE}/admin/api/2024-01/customers.json`,
     {
       method: 'POST',
@@ -33,6 +33,8 @@ async function createCustomer(email) {
       })
     }
   );
+  const data = await res.json();
+  console.log('Create customer response:', JSON.stringify(data));
 }
 
 async function updateTags(customer, add) {
