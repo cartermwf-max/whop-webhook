@@ -1,20 +1,10 @@
 const express = require('express');
-const crypto = require('crypto');
 const app = express();
 
 app.use(express.json());
 
 const SHOPIFY_STORE = process.env.SHOPIFY_STORE;
 const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
-const WHOP_SECRET = process.env.WHOP_SECRET;
-
-function verifyWhop(req) {
-  const sig = req.headers['whop-signature'];
-  if (!sig || !WHOP_SECRET) return false;
-  const hash = crypto.createHmac('sha256', WHOP_SECRET)
-    .update(JSON.stringify(req.body)).digest('hex');
-  return sig === hash;
-}
 
 async function getCustomer(email) {
   const res = await fetch(
@@ -26,7 +16,7 @@ async function getCustomer(email) {
 }
 
 async function createCustomer(email) {
-  const res = await fetch(
+  await fetch(
     `https://${SHOPIFY_STORE}/admin/api/2024-01/customers.json`,
     {
       method: 'POST',
@@ -43,7 +33,6 @@ async function createCustomer(email) {
       })
     }
   );
-  return res.json();
 }
 
 async function updateTags(customer, add) {
@@ -66,25 +55,29 @@ async function updateTags(customer, add) {
   );
 }
 
-app.post('/webhook', async (req, res) => {
-  if (!verifyWhop(req)) return res.status(401).send('Unauthorized');
-
-  const { action, data } = req.body;
-  const email = data?.user?.email;
+app.post('/activate', async (req, res) => {
+  const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email;
   if (!email) return res.status(400).send('No email');
-
   try {
-    if (action === 'membership.went_valid') {
-      const customer = await getCustomer(email);
-      if (customer) {
-        await updateTags(customer, true);
-      } else {
-        await createCustomer(email);
-      }
-    } else if (action === 'membership.went_invalid') {
-      const customer = await getCustomer(email);
-      if (customer) await updateTags(customer, false);
+    const customer = await getCustomer(email);
+    if (customer) {
+      await updateTags(customer, true);
+    } else {
+      await createCustomer(email);
     }
+    res.sendStatus(200);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error');
+  }
+});
+
+app.post('/deactivate', async (req, res) => {
+  const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email;
+  if (!email) return res.status(400).send('No email');
+  try {
+    const customer = await getCustomer(email);
+    if (customer) await updateTags(customer, false);
     res.sendStatus(200);
   } catch (err) {
     console.error(err);
