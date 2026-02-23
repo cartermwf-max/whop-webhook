@@ -56,13 +56,16 @@ async function updateTags(customer, add) {
 }
 
 app.post('/activate', async (req, res) => {
+  console.log('Activate body:', JSON.stringify(req.body));
   const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email || req.body?.text;
   if (!email) return res.status(400).send('No email');
   try {
     const customer = await getCustomer(email);
     if (customer) {
+      console.log('Found customer, updating tags');
       await updateTags(customer, true);
     } else {
+      console.log('No customer found, creating new');
       await createCustomer(email);
     }
     res.sendStatus(200);
