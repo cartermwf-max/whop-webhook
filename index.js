@@ -1,28 +1,27 @@
 const express = require('express');
-const nodemailer = require('nodemailer');
 const app = express();
 
 app.use(express.json());
 
-const GMAIL_USER = process.env.GMAIL_USER;
-const GMAIL_PASS = process.env.GMAIL_PASS;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: GMAIL_USER,
-    pass: GMAIL_PASS
-  }
-});
-
 async function sendEmail(subject, body) {
-  await transporter.sendMail({
-    from: GMAIL_USER,
-    to: NOTIFY_EMAIL,
-    subject,
-    text: body
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: 'Whop Webhook <onboarding@resend.dev>',
+      to: NOTIFY_EMAIL,
+      subject,
+      text: body
+    })
   });
+  const data = await res.json();
+  console.log('Resend response:', JSON.stringify(data));
 }
 
 app.post('/activate', async (req, res) => {
@@ -34,7 +33,6 @@ app.post('/activate', async (req, res) => {
       'Whop: Add member tag',
       `A new member just subscribed on Whop.\n\nAdd the "whop-member" tag in Shopify for:\n\n${email}\n\nShopify link: https://midwestflyways.myshopify.com/admin/customers?query=${encodeURIComponent(email)}`
     );
-    console.log('Email sent for activate:', email);
     res.sendStatus(200);
   } catch (err) {
     console.error(err);
@@ -51,7 +49,6 @@ app.post('/deactivate', async (req, res) => {
       'Whop: Remove member tag',
       `A member just unsubscribed on Whop.\n\nRemove the "whop-member" tag in Shopify for:\n\n${email}\n\nShopify link: https://midwestflyways.myshopify.com/admin/customers?query=${encodeURIComponent(email)}`
     );
-    console.log('Email sent for deactivate:', email);
     res.sendStatus(200);
   } catch (err) {
     console.error(err);
