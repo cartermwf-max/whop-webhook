@@ -2,6 +2,10 @@ const express = require('express');
 const app = express();
 
 app.use(express.json());
+app.use((req, res, next) => {
+  console.log('Raw body:', JSON.stringify(req.body));
+  next();
+});
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
