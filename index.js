@@ -25,6 +25,7 @@ async function sendEmail(subject, body) {
 }
 
 app.post('/activate', async (req, res) => {
+  console.log('Activate headers:', JSON.stringify(req.headers));
   console.log('Activate body:', JSON.stringify(req.body));
   const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email || req.body?.text;
   if (!email) return res.status(400).send('No email');
