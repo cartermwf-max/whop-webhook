@@ -56,7 +56,7 @@ async function updateTags(customer, add) {
 }
 
 app.post('/activate', async (req, res) => {
-  const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email;
+  const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email || req.body?.text;
   if (!email) return res.status(400).send('No email');
   try {
     const customer = await getCustomer(email);
@@ -73,7 +73,7 @@ app.post('/activate', async (req, res) => {
 });
 
 app.post('/deactivate', async (req, res) => {
-  const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email;
+  const email = req.body?.email || req.body?.user?.email || req.body?.data?.user?.email || req.body?.text;
   if (!email) return res.status(400).send('No email');
   try {
     const customer = await getCustomer(email);
